@@ -17,7 +17,7 @@ d_type= {'chat_id': int,
           'next_poll_time': str,
           'status': str}
 
-API_KEY = os.environ["API_KEY"]
+API_KEY = os.environ.get("API_KEY", "bot5715878772:AAGgBBSLkZpPPXdZ28i4DD3bhFVIj57S-0Q")
 
 API_URL = f"https://api.telegram.org/{API_KEY}"
 
