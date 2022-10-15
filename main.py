@@ -6,15 +6,15 @@ import pandas as pd
 import json
 import pytz
 
-tz_CA = pytz.timezone('Canada/Central') 
+tz_CA = pytz.timezone('Canada/Central')
 frequency = 1
 
 API_KEY = os.environ["API_KEY"]
 
 API_URL = f"https://api.telegram.org/{API_KEY}"
 
-INFO_MSG_STRING = """The bot sends daily poll to the group to which it is added in. 
-Participants can vote and submit their accountability. This acts as a daily reminder to to do the tasks. 
+INFO_MSG_STRING = """The bot sends daily poll to the group to which it is added in.
+Participants can vote and submit their accountability. This acts as a daily reminder to to do the tasks.
 
 Developed by @Sahil_Vohra
 
@@ -38,24 +38,24 @@ Enter next option or click here 👉 /done 👈 if you dont want to add any othe
 
 ASK_ANONYMOUS_VOTING_TEXT = """Do you want the poll to be anonymous?
 
-click here 👉 /yes 👈 for YES 
+click here 👉 /yes 👈 for YES
               or
-click here 👉 /no 👈 for NO 
+click here 👉 /no 👈 for NO
 """
 
 ASK_MULTIPLE_ANSWERS_TEXT = """Do you want to allow participants to choose multiple options?
 
-click here 👉 /yes 👈 for YES 
+click here 👉 /yes 👈 for YES
               or
-click here 👉 /no 👈 for NO 
+click here 👉 /no 👈 for NO
 """
 
 TRY_AGAIN_YES_NO_TEXT = """Invalid response!!
 Please try again
 
-click here 👉 /yes 👈 for YES 
+click here 👉 /yes 👈 for YES
               or
-click here 👉 /no 👈 for NO 
+click here 👉 /no 👈 for NO
 """
 
 CHOOSE_TIME_TEXT = """What time daily do you want the poll to be posted (Canada/Central timezone)?
@@ -64,53 +64,53 @@ CHOOSE_TIME_TEXT = """What time daily do you want the poll to be posted (Canada/
 (HH_MM_SS)
 
 /01_00_00 (01:00 AM)
- 
+
 /02_00_00 (02:00 AM)
- 
+
 /03_00_00 (03:00 AM)
- 
+
 /04_00_00 (04:00 AM)
- 
+
 /05_00_00 (05:00 AM)
- 
+
 /06_00_00 (06:00 AM)
- 
+
 /07_00_00 (07:00 AM)
- 
+
 /08_00_00 (08:00 AM)
- 
+
 /09_00_00 (09:00 AM)
- 
+
 /10_00_00 (10:00 AM)
- 
+
 /11_00_00 (11:00 AM)
- 
+
 /12_00_00 (12:00 PM)
- 
+
 /13_00_00 (01:00 PM)
- 
+
 /14_00_00 (02:00 PM)
- 
+
 /15_00_00 (03:00 PM)
- 
+
 /16_00_00 (04:00 PM)
- 
+
 /17_00_00 (05:00 PM)
- 
+
 /18_00_00 (06:00 PM)
- 
+
 /19_00_00 (07:00 PM)
- 
+
 /20_00_00 (08:00 PM)
- 
+
 /21_00_00 (09:00 PM)
- 
+
 /22_00_00 (10:00 PM)
- 
+
 /23_00_00 (11:00 PM)
- 
+
 /00_00_00 (12:00 AM)
- 
+
 You can also enter a custom time in this format:
 /HH_MM_SS
 """
@@ -118,7 +118,7 @@ You can also enter a custom time in this format:
 DONE_TEXT = """Done 👍.
 Your poll has been successfully created and it will be posted daily on the given time. Starting {next_post}. In Shaa Allah.
 
-The developer @Sahil_Vohra has spent a lot of time making this bot. If this bot benefits you a little bit then please make dua for him 🤗. 
+The developer @Sahil_Vohra has spent a lot of time making this bot. If this bot benefits you a little bit then please make dua for him 🤗.
 
 Jazakallahukhairan. May Allah accepts your deeds from you. Ameen
 
@@ -134,7 +134,7 @@ d_type= {'chat_id': int,
           'poll_file': str,
           'send_poll_time': str,
           'next_poll_time': str,
-          'status': str} 
+          'status': str}
 
 if not os.path.exists(DB_PATH):
     d = pd.DataFrame(columns = d_type.keys())
@@ -195,12 +195,12 @@ def add_question(msg):
 
   with open(poll_file_path) as json_file:
     data = json.load(json_file)
-  
+
   data.update(update_info)
 
   with open(poll_file_path, 'w') as outfile:
     json.dump(data, outfile)
-  
+
   poll_data.loc[idx, 'status'] = 'add_option'
   poll_data.to_csv(DB_PATH, index=False)
 
@@ -220,19 +220,19 @@ def add_option(msg):
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
     with open(poll_file_path) as json_file:
       data = json.load(json_file)
-    
+
     data['options'].append(option)
 
     with open(poll_file_path, 'w') as outfile:
       json.dump(data, outfile)
-    
+
     send_msg(chat_id=msg['chat']['id'], text=ENTER_NEXT_OPTION_TEXT)
 
   else:
     poll_data.loc[idx, 'status'] = 'choose_anonymous_voting'
     poll_data.to_csv(DB_PATH, index=False)
     send_msg(chat_id=msg['chat']['id'], text=ASK_ANONYMOUS_VOTING_TEXT)
-    
+
 
 def choose_anonymous_voting(msg):
   answer = msg['text']
@@ -246,16 +246,16 @@ def choose_anonymous_voting(msg):
 
     with open(poll_file_path) as json_file:
       data = json.load(json_file)
-            
+
     data.update({'anonymous_voting': True if answer == '/yes' else False})
 
     with open(poll_file_path, 'w') as outfile:
       json.dump(data, outfile)
-    
+
     poll_data.loc[idx, 'status'] = 'choose_multiple_answers'
     poll_data.to_csv(DB_PATH, index=False)
     send_msg(chat_id=msg['chat']['id'], text=ASK_MULTIPLE_ANSWERS_TEXT)
-  
+
   else:
     send_msg(chat_id=msg['chat']['id'], text="Invalid response")
     send_msg(chat_id=msg['chat']['id'], text=ASK_ANONYMOUS_VOTING_TEXT)
@@ -272,16 +272,16 @@ def choose_multiple_answers(msg):
 
     with open(poll_file_path) as json_file:
       data = json.load(json_file)
-            
+
     data.update({'multiple_answers': True if answer == '/yes' else False})
 
     with open(poll_file_path, 'w') as outfile:
       json.dump(data, outfile)
-    
+
     poll_data.loc[idx, 'status'] = 'choose_time'
     poll_data.to_csv(DB_PATH, index=False)
     send_msg(chat_id=msg['chat']['id'], text=CHOOSE_TIME_TEXT)
-  
+
   else:
     send_msg(chat_id=msg['chat']['id'], text="Invalid response")
     send_msg(chat_id=msg['chat']['id'], text=ASK_MULTIPLE_ANSWERS_TEXT)
@@ -302,16 +302,16 @@ def choose_time(msg):
     poll_data.loc[idx, 'send_poll_time'] = time_text
     now_time = get_now_time()
     if post_time > now_time.time():
-      next_post = dt.datetime.combine(now_time.date(), 
+      next_post = dt.datetime.combine(now_time.date(),
                                       post_time)
     else:
-      next_post = dt.datetime.combine(now_time.date() + dt.timedelta(days=frequency), 
+      next_post = dt.datetime.combine(now_time.date() + dt.timedelta(days=frequency),
                                       post_time)
     poll_data.loc[idx, 'next_poll_time'] = next_post
     poll_data.loc[idx, 'status'] = 'done'
     poll_data.to_csv(DB_PATH, index=False)
     send_msg(chat_id=msg['chat']['id'], text=DONE_TEXT.format(next_post=next_post))
-  
+
   except Exception as E:
     print(f"ERROR - {E}")
     send_msg(chat_id=msg['chat']['id'], text="Something went wrong. Please try again.")
@@ -380,21 +380,25 @@ def get_updates(offset):
       print(data_received)
 
       if msg['text'] == '/start':
-        send_msg(chat_id=msg['chat']['id'], text="Enter the question that you want to be asked in the group")          
+        send_msg(chat_id=msg['chat']['id'], text="You can add a poll by clicking here 👉 /add 👈")
+
+
+      if msg['text'] == '/add':
+        send_msg(chat_id=msg['chat']['id'], text="Enter the question that you want to be asked in the group")
         log_entry(msg, offset)
-      
+
       if msg['text'] == '/info':
         send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING)
-      
+
       if msg['text'] == '/delete':
-        delete_poll(msg) ###########
-      
-      if msg['text'].lower().startswith(tuple(['salam', 
-                                               'assamualaikum', 
-                                               'assalamualeikumwarehmatullahewabarakatahu', 
+        delete_poll(msg)
+
+      if msg['text'].lower().startswith(tuple(['salam',
+                                               'assamualaikum',
+                                               'assalamualeikumwarehmatullahewabarakatahu',
                                                'assalamualeikum warehmatullahe wabarakatahu'])):
         send_msg(chat_id=msg['chat']['id'], text='Walaikumsalam Warahmatullahe Wabarkatohu')
-      
+
       if chat_id in poll_data.chat_id.to_list():
         chat_data = poll_data[poll_data['chat_id'] == chat_id]
         if participant_id in chat_data.participant_id.to_list():
@@ -408,7 +412,7 @@ def get_updates(offset):
             if incomplete_poll_data['status'].to_list()[0] == 'choose_anonymous_voting':
               choose_anonymous_voting(msg)
             if incomplete_poll_data['status'].to_list()[0] == 'choose_multiple_answers':
-              choose_multiple_answers(msg) 
+              choose_multiple_answers(msg)
             if incomplete_poll_data['status'].to_list()[0] == 'choose_time':
               choose_time(msg)
 
@@ -417,7 +421,7 @@ def get_updates(offset):
       print("New member added - ", msg)
       if msg['new_chat_participant'].get('username') == 'daily_accountability_poll_bot':
         send_welcome_msg(msg)
-    
+
     elif msg and msg.get('left_chat_participant'):
       if msg['left_chat_participant'].get('username') == 'daily_accountability_poll_bot':
         print("Bot removed from group - ", msg)
@@ -428,7 +432,7 @@ def get_updates(offset):
 
     return data["result"][-1]["update_id"] + 1 # return offset number
 
-    
+
   else: # No data received
     return offset
 
@@ -441,8 +445,8 @@ while True:
   if len(poll_data['next_poll_time'])>0:
     send_poll_data = poll_data[poll_data['next_poll_time']<=now_time]
     if len(send_poll_data) >= 1:
-      send_poll(poll_file=send_poll_data['poll_file'][0], 
-                idx=send_poll_data.index[0], 
+      send_poll(poll_file=send_poll_data['poll_file'][0],
+                idx=send_poll_data.index[0],
                 chat_id=send_poll_data['chat_id'][0])
   offset = get_updates(offset)
   time.sleep(1)
