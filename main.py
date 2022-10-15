@@ -9,7 +9,9 @@ import pytz
 tz_CA = pytz.timezone('Canada/Central') 
 frequency = 1
 
-API_URL = "https://api.telegram.org/bot5715878772:AAGgBBSLkZpPPXdZ28i4DD3bhFVIj57S-0Q"
+API_KEY = os.environ["API_KEY"]
+
+API_URL = f"https://api.telegram.org/{API_KEY}"
 
 INFO_MSG_STRING = """The bot sends daily poll to the group to which it is added in. 
 Participants can vote and submit their accountability. This acts as a daily reminder to to do the tasks. 
@@ -376,7 +378,7 @@ def get_updates(offset):
       print(data_received)
 
       if msg['text'] == '/start':
-        send_msg(chat_id=msg['chat']['id'], text="Enter the question that you want to be asked in the grp")          
+        send_msg(chat_id=msg['chat']['id'], text="Enter the question that you want to be asked in the group")          
         log_entry(msg, offset)
       
       if msg['text'] == '/info':
