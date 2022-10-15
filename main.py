@@ -8,17 +8,24 @@ import pytz
 
 tz_CA = pytz.timezone('Canada/Central')
 frequency = 1
+POLL_FILE_FOLDER = 'poll_files'
+DB_PATH = 'poll_data.csv'
+d_type= {'chat_id': int,
+          'participant_id': int,
+          'poll_file': str,
+          'send_poll_time': str,
+          'next_poll_time': str,
+          'status': str}
 
 API_KEY = os.environ["API_KEY"]
 
 API_URL = f"https://api.telegram.org/{API_KEY}"
 
 INFO_MSG_STRING = """The bot sends daily poll to the group to which it is added in.
-Participants can vote and submit their accountability. This acts as a daily reminder to to do the tasks.
+Participants can vote and submit their accountability. This acts as a daily reminder to do the tasks.
 
 Developed by @Sahil_Vohra
 
-Type /start to begin the bot
 """
 
 WELCOME_TEXT = """Jazakallahukhairan @{username} for adding me.
@@ -126,15 +133,7 @@ You can always delete the poll by typing /delete
 """
 
 
-POLL_FILE_FOLDER = 'poll_files'
-DB_PATH = 'poll_data.csv'
 
-d_type= {'chat_id': int,
-          'participant_id': int,
-          'poll_file': str,
-          'send_poll_time': str,
-          'next_poll_time': str,
-          'status': str}
 
 if not os.path.exists(DB_PATH):
     d = pd.DataFrame(columns = d_type.keys())
@@ -380,7 +379,7 @@ def get_updates(offset):
       print(data_received)
 
       if msg['text'] == '/start':
-        send_msg(chat_id=msg['chat']['id'], text="You can add a poll by clicking here 👉 /add 👈")
+        send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING + "You can add a poll by clicking here 👉 /add 👈")
 
 
       if msg['text'] == '/add':
