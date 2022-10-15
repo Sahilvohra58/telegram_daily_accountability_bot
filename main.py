@@ -355,85 +355,89 @@ def delete_poll(msg):
   send_msg(chat_id=chat_id, text="Poll deleted!!")
 
 def get_updates(offset):
-  parameters = {
-      "offset": offset
-  }
-
-  response = requests.get(API_URL + "/getUpdates", data=parameters)
-  data = response.json()
-
-
-  if data.get('result'):
-    msg = data['result'][-1].get('message')
-
-    ############### if msg text received #############
-    if msg and msg.get('text'):
-      chat_id = msg['chat']['id']
-      participant_id = msg['from']['id']
-      data_received = {
-          "offset": offset,
-          "user": msg['from']['username'],
-          "chat": msg['chat']['title'],
-          "text": msg['text']
-      }
-      print(data_received)
-
-      if msg['text'] == '/start':
-        send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING + "You can add a poll by clicking here 👉 /add 👈")
-
-
-      if msg['text'] == '/add':
-        send_msg(chat_id=msg['chat']['id'], text="Enter the question that you want to be asked in the group")
-        log_entry(msg, offset)
-
-      if msg['text'] == '/info':
-        send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING)
-
-      if msg['text'] == '/delete':
-        delete_poll(msg)
-
-      if msg['text'].lower().startswith(tuple(['salam',
-                                               'assamualaikum',
-                                               'assalamualeikumwarehmatullahewabarakatahu',
-                                               'assalamualeikum warehmatullahe wabarakatahu'])):
-        send_msg(chat_id=msg['chat']['id'], text='Walaikumsalam Warahmatullahe Wabarkatohu')
-
-      if chat_id in poll_data.chat_id.to_list():
-        chat_data = poll_data[poll_data['chat_id'] == chat_id]
-        if participant_id in chat_data.participant_id.to_list():
-          participant_data = chat_data[chat_data['participant_id'] == participant_id]
-          incomplete_poll_data = participant_data[participant_data['status'] != 'done']
-          if len(incomplete_poll_data) == 1:
-            if incomplete_poll_data['status'].to_list()[0] == 'start':
-              add_question(msg)
-            if incomplete_poll_data['status'].to_list()[0] == 'add_option':
-              add_option(msg)
-            if incomplete_poll_data['status'].to_list()[0] == 'choose_anonymous_voting':
-              choose_anonymous_voting(msg)
-            if incomplete_poll_data['status'].to_list()[0] == 'choose_multiple_answers':
-              choose_multiple_answers(msg)
-            if incomplete_poll_data['status'].to_list()[0] == 'choose_time':
-              choose_time(msg)
-
-
-    elif msg and msg.get('new_chat_participant'):
-      print("New member added - ", msg)
-      if msg['new_chat_participant'].get('username') == 'daily_accountability_poll_bot':
-        send_welcome_msg(msg)
-
-    elif msg and msg.get('left_chat_participant'):
-      if msg['left_chat_participant'].get('username') == 'daily_accountability_poll_bot':
-        print("Bot removed from group - ", msg)
-        delete_poll(msg)
-
-    else:
-      print("New msg type - ", msg)
-
-    return data["result"][-1]["update_id"] + 1 # return offset number
-
-
-  else: # No data received
-    return offset
+  
+    parameters = {
+          "offset": offset
+    }
+    
+    response = requests.get(API_URL + "/getUpdates", data=parameters)
+    data = response.json()
+    
+    try:
+      if data.get('result'):
+        msg = data['result'][-1].get('message')
+    
+        ############### if msg text received #############
+        if msg and msg.get('text'):
+          chat_id = msg['chat']['id']
+          participant_id = msg['from']['id']
+          data_received = {
+              "offset": offset,
+              "time": get_now_time()
+              "user": msg['from']['username'],
+              "chat": msg['chat']['title'],
+              "text": msg['text']
+          }
+          print(data_received)
+    
+          if msg['text'] == '/start':
+            send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING + "You can add a poll by clicking here 👉 /add 👈")
+    
+    
+          if msg['text'] == '/add':
+            send_msg(chat_id=msg['chat']['id'], text="Enter the question that you want to be asked in the group")
+            log_entry(msg, offset)
+    
+          if msg['text'] == '/info':
+            send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING)
+    
+          if msg['text'] == '/delete':
+            delete_poll(msg)
+    
+          if msg['text'].lower().startswith(tuple(['salam',
+                                                   'assamualaikum',
+                                                   'assalamualeikumwarehmatullahewabarakatahu',
+                                                   'assalamualeikum warehmatullahe wabarakatahu'])):
+            send_msg(chat_id=msg['chat']['id'], text='Walaikumsalam Warahmatullahe Wabarkatohu')
+    
+          if chat_id in poll_data.chat_id.to_list():
+            chat_data = poll_data[poll_data['chat_id'] == chat_id]
+            if participant_id in chat_data.participant_id.to_list():
+              participant_data = chat_data[chat_data['participant_id'] == participant_id]
+              incomplete_poll_data = participant_data[participant_data['status'] != 'done']
+              if len(incomplete_poll_data) == 1:
+                if incomplete_poll_data['status'].to_list()[0] == 'start':
+                  add_question(msg)
+                if incomplete_poll_data['status'].to_list()[0] == 'add_option':
+                  add_option(msg)
+                if incomplete_poll_data['status'].to_list()[0] == 'choose_anonymous_voting':
+                  choose_anonymous_voting(msg)
+                if incomplete_poll_data['status'].to_list()[0] == 'choose_multiple_answers':
+                  choose_multiple_answers(msg)
+                if incomplete_poll_data['status'].to_list()[0] == 'choose_time':
+                  choose_time(msg)
+    
+    
+        elif msg and msg.get('new_chat_participant'):
+          print("New member added - ", msg)
+          if msg['new_chat_participant'].get('username') == 'daily_accountability_poll_bot':
+            send_welcome_msg(msg)
+    
+        elif msg and msg.get('left_chat_participant'):
+          if msg['left_chat_participant'].get('username') == 'daily_accountability_poll_bot':
+            print("Bot removed from group - ", msg)
+            delete_poll(msg)
+    
+        else:
+          print("New msg type - ", msg)
+    
+        return data["result"][-1]["update_id"] + 1 # return offset number
+    
+      else: # No data received
+        return offset
+    except Exception as E:
+      print(f"Error in received msg - {E} - Data received = {data}")
+      return offset
 
 offset = '0'
 while True:
