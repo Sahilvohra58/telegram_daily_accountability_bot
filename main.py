@@ -382,7 +382,7 @@ def get_updates(offset):
         log_entry(msg, offset)
       
       if msg['text'] == '/info':
-        send_msg(msg=msg, text=INFO_MSG_STRING)
+        send_msg(chat_id=msg['chat']['id'], text=INFO_MSG_STRING)
       
       if msg['text'] == '/delete':
         delete_poll(msg) ###########
@@ -391,7 +391,7 @@ def get_updates(offset):
                                                'assamualaikum', 
                                                'assalamualeikumwarehmatullahewabarakatahu', 
                                                'assalamualeikum warehmatullahe wabarakatahu'])):
-        send_msg(msg=msg, text='Walaikumsalam Warahmatullahe Wabarkatohu')
+        send_msg(chat_id=msg['chat']['id'], text='Walaikumsalam Warahmatullahe Wabarkatohu')
       
       if chat_id in poll_data.chat_id.to_list():
         chat_data = poll_data[poll_data['chat_id'] == chat_id]
