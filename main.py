@@ -121,6 +121,8 @@ Your poll has been successfully created and it will be posted daily on the given
 The developer @Sahil_Vohra has spent a lot of time making this bot. If this bot benefits you a little bit then please make dua for him 🤗. 
 
 Jazakallahukhairan. May Allah accepts your deeds from you. Ameen
+
+You can always delete the poll by typing /delete
 """
 
 
@@ -187,7 +189,7 @@ def add_question(msg):
   chat_data = poll_data[poll_data['chat_id'] == chat_id]
   poll_files = chat_data[chat_data['status'] == 'start']['poll_file']
   idx = poll_files.index[0]
-  poll_file = poll_files[0]
+  poll_file = poll_files.to_list()[0]
   poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
   update_info = {'question': question, 'options': []}
 
@@ -214,7 +216,7 @@ def add_option(msg):
   idx = poll_files.index[0]
 
   if option != '/done':
-    poll_file = poll_files[0]
+    poll_file = poll_files.to_list()[0]
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
     with open(poll_file_path) as json_file:
       data = json.load(json_file)
@@ -239,7 +241,7 @@ def choose_anonymous_voting(msg):
     chat_data = poll_data[poll_data['chat_id'] == chat_id]
     poll_files = chat_data[chat_data['status'] == 'choose_anonymous_voting']['poll_file']
     idx = poll_files.index[0]
-    poll_file = poll_files[0]
+    poll_file = poll_files.to_list()[0]
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
 
     with open(poll_file_path) as json_file:
@@ -265,7 +267,7 @@ def choose_multiple_answers(msg):
     chat_data = poll_data[poll_data['chat_id'] == chat_id]
     poll_files = chat_data[chat_data['status'] == 'choose_multiple_answers']['poll_file']
     idx = poll_files.index[0]
-    poll_file = poll_files[0]
+    poll_file = poll_files.to_list()[0]
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
 
     with open(poll_file_path) as json_file:
@@ -362,7 +364,7 @@ def get_updates(offset):
   data = response.json()
 
 
-  if data['result']:
+  if data.get('result'):
     msg = data['result'][-1].get('message')
 
     ############### if msg text received #############
@@ -399,15 +401,15 @@ def get_updates(offset):
           participant_data = chat_data[chat_data['participant_id'] == participant_id]
           incomplete_poll_data = participant_data[participant_data['status'] != 'done']
           if len(incomplete_poll_data) == 1:
-            if incomplete_poll_data['status'][0] == 'start':
+            if incomplete_poll_data['status'].to_list()[0] == 'start':
               add_question(msg)
-            if incomplete_poll_data['status'][0] == 'add_option':
+            if incomplete_poll_data['status'].to_list()[0] == 'add_option':
               add_option(msg)
-            if incomplete_poll_data['status'][0] == 'choose_anonymous_voting':
+            if incomplete_poll_data['status'].to_list()[0] == 'choose_anonymous_voting':
               choose_anonymous_voting(msg)
-            if incomplete_poll_data['status'][0] == 'choose_multiple_answers':
+            if incomplete_poll_data['status'].to_list()[0] == 'choose_multiple_answers':
               choose_multiple_answers(msg) 
-            if incomplete_poll_data['status'][0] == 'choose_time':
+            if incomplete_poll_data['status'].to_list()[0] == 'choose_time':
               choose_time(msg)
 
 
@@ -427,15 +429,13 @@ def get_updates(offset):
     return data["result"][-1]["update_id"] + 1 # return offset number
 
     
-      
-
   else: # No data received
     return offset
 
 offset = '0'
 while True:
-  poll_data = pd.read_csv(DB_PATH, dtype=d_type) # parse_dates=['next_poll_time', 'send_poll_time'])
-  # poll_data['send_poll_time'] = pd.to_datetime(poll_data['send_poll_time'])
+  poll_data = pd.read_csv(DB_PATH, dtype=d_type)
+
   poll_data['next_poll_time'] = pd.to_datetime(poll_data['next_poll_time'])
   now_time = get_now_time()
   if len(poll_data['next_poll_time'])>0:
