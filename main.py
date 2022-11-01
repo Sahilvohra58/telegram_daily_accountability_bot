@@ -21,7 +21,7 @@ log.addHandler(ch)
 log.addHandler(fh)
 
 tz_CA = pytz.timezone('Canada/Central')
-frequency = 0.0014
+frequency = 1
 POLL_FILE_FOLDER = 'poll_files'
 DB_PATH = 'poll_data.json'
 d_type= {'chat_id': int,
