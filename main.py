@@ -313,7 +313,7 @@ def choose_time(msg):
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
 
     poll_dict = get_json(path=poll_file_path)
-    poll_dict.update({'daily_poll_tiime': time_text})
+    poll_dict.update({'daily_poll_time': time_text})
     save_json(json_data=poll_dict, path=poll_file_path)
 
     now_time = get_now_time()
