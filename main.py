@@ -33,7 +33,7 @@ d_type= {'chat_id': int,
 
 API_KEY = os.environ.get("API_KEY", "")
 
-API_URL = f"https://api.telegram.org/{API_KEY}"
+API_URL = f"https://api.telegram.org/bot{API_KEY}"
 
 INFO_MSG_STRING = """The bot sends daily poll to the group to which it is added in.
 Participants can vote and submit their accountability. This acts as a daily reminder to do the tasks.
