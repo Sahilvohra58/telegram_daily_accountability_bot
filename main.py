@@ -1,15 +1,29 @@
 import os
+import sys
 import time
 import requests
-import datetime as dt
-import pandas as pd
+import logging
 import json
 import pytz
+import datetime as dt
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter = logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s",
+                          datefmt="%Y-%m-%d - %H:%M:%S")
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+ch.setFormatter(formatter)
+fh = logging.FileHandler("poll_log.log", "w")
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+log.addHandler(ch)
+log.addHandler(fh)
 
 tz_CA = pytz.timezone('Canada/Central')
-frequency = 1
+frequency = 0.0014
 POLL_FILE_FOLDER = 'poll_files'
-DB_PATH = 'poll_data.csv'
+DB_PATH = 'poll_data.json'
 d_type= {'chat_id': int,
           'participant_id': int,
           'poll_file': str,
@@ -132,16 +146,29 @@ Jazakallahukhairan. May Allah accepts your deeds from you. Ameen
 You can always delete the poll by typing /delete
 """
 
+def save_json(json_data, path):
+  with open(path, "w") as outfile:
+    json.dump(json_data, outfile)
 
-
-
-if not os.path.exists(DB_PATH):
-    d = pd.DataFrame(columns = d_type.keys())
-    d = d.astype(d_type)
-    d['next_poll_time'] = pd.to_datetime(d['next_poll_time'])
-    d.to_csv(DB_PATH, index=False)
 
 os.makedirs(POLL_FILE_FOLDER, exist_ok=True)
+if not os.path.exists(DB_PATH):
+  initial_dictionary = {
+          'add_question': {},
+          'add_option': {},
+          'choose_anonymous_voting': {},
+          'choose_multiple_answers': {},
+          'choose_time': {},
+          'done': {}
+      }
+  save_json(json_data=initial_dictionary, path=DB_PATH)
+
+
+def get_json(path):
+  with open(path, 'r') as openfile:
+     json_object = json.load(openfile)
+  return json_object
+
 
 def send_welcome_msg(msg):
   parameters = {
@@ -149,7 +176,7 @@ def send_welcome_msg(msg):
       "text": WELCOME_TEXT.format(username=msg['from']['username'])
   }
 
-  resp = requests.get(API_URL + "/sendMessage", data=parameters)
+  requests.get(API_URL + "/sendMessage", data=parameters)
 
 
 def send_msg(chat_id, text):
@@ -157,51 +184,41 @@ def send_msg(chat_id, text):
         "chat_id": chat_id,
         "text": text
     }
-  resp = requests.get(API_URL + "/sendMessage", data=parameters)
+  requests.get(API_URL + "/sendMessage", data=parameters)
 
 
 def log_entry(msg, offset):
   chat_id = msg['chat']['id']
+  poll_data = get_json(path=DB_PATH)
 
-  if chat_id not in poll_data[poll_data['status'] == 'start']['chat_id'].to_list():
+  if chat_id not in poll_data['add_question'].keys():
     participant_id = msg['from']['id']
     poll_file = str(chat_id) + "_" + str(offset) + '.json'
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
-    with open(poll_file_path, 'w') as outfile:
-      json.dump({"chat_id":chat_id}, outfile)
 
+    save_json(json_data={"chat_id":chat_id}, path=poll_file_path)
 
-    new_data = {
-        'chat_id': chat_id,
-            'participant_id': participant_id,
-            'poll_file': poll_file,
-            'send_poll_time': None,
-            'next_poll_time': None,
-            'status': 'start'
-    }
+    poll_data['add_question'][chat_id] = [participant_id, poll_file]
+    save_json(json_data=poll_data, path=DB_PATH)
 
-    poll_data.append(new_data, ignore_index=True).to_csv(DB_PATH, index=False)
 
 def add_question(msg):
   question = msg['text']
-  chat_id = msg['chat']['id']
-  chat_data = poll_data[poll_data['chat_id'] == chat_id]
-  poll_files = chat_data[chat_data['status'] == 'start']['poll_file']
-  idx = poll_files.index[0]
-  poll_file = poll_files.to_list()[0]
+  chat_id = str(msg['chat']['id'])
+
+  poll_data = get_json(path=DB_PATH)
+  poll_file = poll_data['add_question'][chat_id][1]
   poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
   update_info = {'question': question, 'options': []}
 
-  with open(poll_file_path) as json_file:
-    data = json.load(json_file)
+  poll_dict = get_json(path=poll_file_path)
+  poll_dict.update(update_info)
+  save_json(json_data=poll_dict, path=poll_file_path)
 
-  data.update(update_info)
-
-  with open(poll_file_path, 'w') as outfile:
-    json.dump(data, outfile)
-
-  poll_data.loc[idx, 'status'] = 'add_option'
-  poll_data.to_csv(DB_PATH, index=False)
+  poll_data = get_json(path=DB_PATH)
+  poll_data['add_option'][chat_id] = poll_data['add_question'][chat_id]
+  poll_data['add_question'].pop(chat_id)
+  save_json(json_data=poll_data, path=DB_PATH)
 
   send_msg(chat_id=msg['chat']['id'], text=QUESTION_ADDED_TEXT)
 
@@ -209,50 +226,46 @@ def add_question(msg):
 
 def add_option(msg):
   option = msg['text']
-  chat_id = msg['chat']['id']
-  chat_data = poll_data[poll_data['chat_id'] == chat_id]
-  poll_files = chat_data[chat_data['status'] == 'add_option']['poll_file']
-  idx = poll_files.index[0]
+  chat_id = str(msg['chat']['id'])
 
+  poll_data = get_json(path=DB_PATH)
   if option != '/done':
-    poll_file = poll_files.to_list()[0]
+    poll_file = poll_data['add_option'][chat_id][1]
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
-    with open(poll_file_path) as json_file:
-      data = json.load(json_file)
 
-    data['options'].append(option)
-
-    with open(poll_file_path, 'w') as outfile:
-      json.dump(data, outfile)
+    poll_dict = get_json(path=poll_file_path)
+    poll_dict['options'].append(option)
+    save_json(json_data=poll_dict, path=poll_file_path)
 
     send_msg(chat_id=msg['chat']['id'], text=ENTER_NEXT_OPTION_TEXT)
 
   else:
-    poll_data.loc[idx, 'status'] = 'choose_anonymous_voting'
-    poll_data.to_csv(DB_PATH, index=False)
+    poll_data = get_json(path=DB_PATH)
+    poll_data['choose_anonymous_voting'][chat_id] = poll_data['add_option'][chat_id]
+    poll_data['add_option'].pop(chat_id)
+    save_json(json_data=poll_data, path=DB_PATH)
+
     send_msg(chat_id=msg['chat']['id'], text=ASK_ANONYMOUS_VOTING_TEXT)
 
 
 def choose_anonymous_voting(msg):
   answer = msg['text']
   if answer in ['/yes', '/no']:
-    chat_id = msg['chat']['id']
-    chat_data = poll_data[poll_data['chat_id'] == chat_id]
-    poll_files = chat_data[chat_data['status'] == 'choose_anonymous_voting']['poll_file']
-    idx = poll_files.index[0]
-    poll_file = poll_files.to_list()[0]
+    chat_id = str(msg['chat']['id'])
+
+    poll_data = get_json(path=DB_PATH)
+    poll_file = poll_data['choose_anonymous_voting'][chat_id][1]
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
 
-    with open(poll_file_path) as json_file:
-      data = json.load(json_file)
+    poll_dict = get_json(path=poll_file_path)
+    poll_dict.update({'anonymous_voting': True if answer == '/yes' else False})
+    save_json(json_data=poll_dict, path=poll_file_path)
 
-    data.update({'anonymous_voting': True if answer == '/yes' else False})
 
-    with open(poll_file_path, 'w') as outfile:
-      json.dump(data, outfile)
+    poll_data['choose_multiple_answers'][chat_id] = poll_data['choose_anonymous_voting'][chat_id]
+    poll_data['choose_anonymous_voting'].pop(chat_id)
+    save_json(json_data=poll_data, path=DB_PATH)
 
-    poll_data.loc[idx, 'status'] = 'choose_multiple_answers'
-    poll_data.to_csv(DB_PATH, index=False)
     send_msg(chat_id=msg['chat']['id'], text=ASK_MULTIPLE_ANSWERS_TEXT)
 
   else:
@@ -262,23 +275,21 @@ def choose_anonymous_voting(msg):
 def choose_multiple_answers(msg):
   answer = msg['text']
   if answer in ['/yes', '/no']:
-    chat_id = msg['chat']['id']
-    chat_data = poll_data[poll_data['chat_id'] == chat_id]
-    poll_files = chat_data[chat_data['status'] == 'choose_multiple_answers']['poll_file']
-    idx = poll_files.index[0]
-    poll_file = poll_files.to_list()[0]
+    chat_id = str(msg['chat']['id'])
+
+    poll_data = get_json(path=DB_PATH)
+    poll_file = poll_data['choose_multiple_answers'][chat_id][1]
     poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
 
-    with open(poll_file_path) as json_file:
-      data = json.load(json_file)
+    poll_dict = get_json(path=poll_file_path)
+    poll_dict.update({'multiple_answers': True if answer == '/yes' else False})
+    save_json(json_data=poll_dict, path=poll_file_path)
 
-    data.update({'multiple_answers': True if answer == '/yes' else False})
+    poll_data = get_json(path=DB_PATH)
+    poll_data['choose_time'][chat_id] = poll_data['choose_multiple_answers'][chat_id]
+    poll_data['choose_multiple_answers'].pop(chat_id)
+    save_json(json_data=poll_data, path=DB_PATH)
 
-    with open(poll_file_path, 'w') as outfile:
-      json.dump(data, outfile)
-
-    poll_data.loc[idx, 'status'] = 'choose_time'
-    poll_data.to_csv(DB_PATH, index=False)
     send_msg(chat_id=msg['chat']['id'], text=CHOOSE_TIME_TEXT)
 
   else:
@@ -295,10 +306,16 @@ def choose_time(msg):
   time_text = msg['text'][1:]
   try:
     post_time = dt.datetime.strptime(time_text, "%H_%M_%S").time()
-    chat_id = msg['chat']['id']
-    chat_data = poll_data[poll_data['chat_id'] == chat_id]
-    idx = chat_data[chat_data['status'] == 'choose_time'].index[0]
-    poll_data.loc[idx, 'send_poll_time'] = time_text
+    chat_id = str(msg['chat']['id'])
+
+    poll_data = get_json(path=DB_PATH)
+    poll_file = poll_data['choose_time'][chat_id][1]
+    poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
+
+    poll_dict = get_json(path=poll_file_path)
+    poll_dict.update({'daily_poll_tiime': time_text})
+    save_json(json_data=poll_dict, path=poll_file_path)
+
     now_time = get_now_time()
     if post_time > now_time.time():
       next_post = dt.datetime.combine(now_time.date(),
@@ -306,9 +323,13 @@ def choose_time(msg):
     else:
       next_post = dt.datetime.combine(now_time.date() + dt.timedelta(days=frequency),
                                       post_time)
-    poll_data.loc[idx, 'next_poll_time'] = next_post
-    poll_data.loc[idx, 'status'] = 'done'
-    poll_data.to_csv(DB_PATH, index=False)
+
+
+    log.debug(f"Created new poll {poll_file} at time - {next_post}")
+    poll_data['done'][poll_file] = next_post.isoformat()
+    poll_data['choose_time'].pop(chat_id)
+    save_json(json_data=poll_data, path=DB_PATH)
+
     send_msg(chat_id=msg['chat']['id'], text=DONE_TEXT.format(next_post=next_post))
 
   except Exception as E:
@@ -316,43 +337,46 @@ def choose_time(msg):
     send_msg(chat_id=msg['chat']['id'], text="Something went wrong. Please try again.")
     send_msg(chat_id=msg['chat']['id'], text=CHOOSE_TIME_TEXT)
 
-def send_poll(poll_file, idx, chat_id):
+def send_poll(poll_file):
   poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
+  poll_dict = get_json(path=poll_file_path)
+  chat_id = poll_dict['chat_id']
 
   try:
-    with open(poll_file_path) as json_file:
-        data = json.load(json_file)
-
     parameters = {
-        "chat_id": data['chat_id'],
-        "question": data['question'],
-        "options": json.dumps(data['options']),
-        "is_anonymous": data['anonymous_voting'],
-        "allows_multiple_answers": data['multiple_answers'],
-
+        "chat_id": chat_id,
+        "question": poll_dict['question'],
+        "options": json.dumps(poll_dict['options']),
+        "is_anonymous": poll_dict['anonymous_voting'],
+        "allows_multiple_answers": poll_dict['multiple_answers']
     }
 
     response = requests.get(API_URL + "/sendPoll", data=parameters)
-    print(response.text)
-    poll_data.loc[idx, 'next_poll_time'] = poll_data.loc[idx, 'next_poll_time'] + dt.timedelta(days=frequency)
-    poll_data.to_csv(DB_PATH, index=False)
+    log.debug(f"Poll sent - {response.text}")
+
   except Exception as E:
     print(f"ERROR - {E}")
+    log.error(f"Failed to post the poll {poll_file} -  Error: {E}", exc_info=True)
     send_msg(chat_id=chat_id, text="Something went wrong in sending the poll. Please contact @Sahil_Vohra.")
 
 
 def delete_poll(msg):
-  chat_id = msg['chat']['id']
-  chat_data = poll_data[poll_data['chat_id'] == chat_id]
-  for poll_file in chat_data['poll_file']:
-    poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
-    if os.path.exists(poll_file_path):
-      os.remove(poll_file_path)
-  idxs = list(chat_data.index)
-  poll_data.drop(poll_data.index[idxs], inplace=True)
-  poll_data.reset_index(drop=True)
-  poll_data.to_csv(DB_PATH, index=False)
-  send_msg(chat_id=chat_id, text="Poll deleted!!")
+  chat_id = str(msg['chat']['id'])
+
+  poll_data = get_json(path=DB_PATH)
+  polls_to_delete = [key for key in poll_data['done'].keys() if key.startswith(str(chat_id))]
+  if polls_to_delete:
+    for poll_file in polls_to_delete:
+      poll_file_path = os.path.join(POLL_FILE_FOLDER, poll_file)
+      if os.path.exists(poll_file_path):
+        os.remove(poll_file_path)
+      poll_data['done'].pop(poll_file)
+      log.debug(f"Poll deleted - {poll_file}")
+
+    save_json(json_data=poll_data, path=DB_PATH)
+    send_msg(chat_id=chat_id, text="Poll deleted!!")
+  else:
+    send_msg(chat_id=chat_id, text="No poll to delete!!")
 
 def get_updates(offset):
 
@@ -363,20 +387,21 @@ def get_updates(offset):
     response = requests.get(API_URL + "/getUpdates", data=parameters)
     data = response.json()
 
-    try:
-      if data.get('result'):
+    # try:
+    if data.get('result'):
         msg = data['result'][-1].get('message')
 
         ############### if msg text received #############
         if msg and msg.get('text'):
-          chat_id = msg['chat']['id']
+          chat_id = str(msg['chat']['id'])
           participant_id = msg['from']['id']
           data_received = {
-              "offset": offset,
-              "time": get_now_time().isoformat(),
+              "text": msg['text'],
               "user": msg['from']['username'],
               "chat": msg['chat']['title'],
-              "text": msg['text']
+              "time": get_now_time().isoformat(),
+              "offset": offset
+
           }
           print(data_received)
 
@@ -400,22 +425,25 @@ def get_updates(offset):
                                                    'assalamualeikum warehmatullahe wabarakatahu'])):
             send_msg(chat_id=msg['chat']['id'], text='Walaikumsalam Warahmatullahe Wabarkatohu')
 
-          if chat_id in poll_data.chat_id.to_list():
-            chat_data = poll_data[poll_data['chat_id'] == chat_id]
-            if participant_id in chat_data.participant_id.to_list():
-              participant_data = chat_data[chat_data['participant_id'] == participant_id]
-              incomplete_poll_data = participant_data[participant_data['status'] != 'done']
-              if len(incomplete_poll_data) == 1:
-                if incomplete_poll_data['status'].to_list()[0] == 'start':
-                  add_question(msg)
-                if incomplete_poll_data['status'].to_list()[0] == 'add_option':
-                  add_option(msg)
-                if incomplete_poll_data['status'].to_list()[0] == 'choose_anonymous_voting':
-                  choose_anonymous_voting(msg)
-                if incomplete_poll_data['status'].to_list()[0] == 'choose_multiple_answers':
-                  choose_multiple_answers(msg)
-                if incomplete_poll_data['status'].to_list()[0] == 'choose_time':
-                  choose_time(msg)
+          if chat_id in poll_data['add_question'].keys():
+            if participant_id == poll_data['add_question'][chat_id][0]:
+              add_question(msg)
+
+          if chat_id in poll_data['add_option'].keys():
+            if participant_id == poll_data['add_option'][chat_id][0]:
+              add_option(msg)
+
+          if chat_id in poll_data['choose_anonymous_voting'].keys():
+            if participant_id == poll_data['choose_anonymous_voting'][chat_id][0]:
+              choose_anonymous_voting(msg)
+
+          if chat_id in poll_data['choose_multiple_answers'].keys():
+            if participant_id == poll_data['choose_multiple_answers'][chat_id][0]:
+              choose_multiple_answers(msg)
+
+          if chat_id in poll_data['choose_time'].keys():
+            if participant_id == poll_data['choose_time'][chat_id][0]:
+              choose_time(msg)
 
 
         elif msg and msg.get('new_chat_participant'):
@@ -433,30 +461,29 @@ def get_updates(offset):
 
         return data["result"][-1]["update_id"] + 1 # return offset number
 
-      else: # No data received
+    else: # No data received
         return offset
-    except Exception as E:
-      print(f"Error in received msg - {E} - Data received = {data}")
-      error_dict = {
-          "Time": get_now_time().isoformat(),
-          "ERROR":E,
-          "Data_received": data
-          }
-      with open("errors.log", 'w') as error_file:
-        json.dump(error_dict, error_file)
-      return offset
+
 
 offset = '0'
 while True:
-  poll_data = pd.read_csv(DB_PATH, dtype=d_type)
+  try:
+    poll_data = get_json(path=DB_PATH)
 
-  poll_data['next_poll_time'] = pd.to_datetime(poll_data['next_poll_time'])
-  now_time = get_now_time()
-  if len(poll_data['next_poll_time'])>0:
-    send_poll_data = poll_data[poll_data['next_poll_time']<=now_time]
-    if len(send_poll_data) >= 1:
-      send_poll(poll_file=send_poll_data['poll_file'][0],
-                idx=send_poll_data.index[0],
-                chat_id=send_poll_data['chat_id'][0])
-  offset = get_updates(offset)
+    if poll_data['done']:
+      now_time = get_now_time()
+      for poll_file, poll_time in poll_data['done'].items():
+        poll_time = dt.datetime.fromisoformat(poll_time)
+        if now_time>=poll_time:
+          send_poll(poll_file=poll_file)
+          poll_data['done'][poll_file] = (poll_time + dt.timedelta(days=frequency)).isoformat()
+          save_json(json_data=poll_data, path=DB_PATH)
+    try:
+      offset = get_updates(offset)
+    except Exception as E:
+      log.error(f"Failed to get updates - Error - {E}", exc_info=True)
+
+  except Exception as E:
+    log.error(f"Fatal error - {E}", exc_info=True)
+
   time.sleep(1)
