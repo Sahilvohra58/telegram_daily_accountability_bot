@@ -397,7 +397,7 @@ def get_updates(offset):
           participant_id = msg['from']['id']
           data_received = {
               "text": msg['text'],
-              "user": msg['from']['username'],
+              "user": msg['from'].get('username'),
               "chat": msg['chat']['title'],
               "time": get_now_time().isoformat(),
               "offset": offset
